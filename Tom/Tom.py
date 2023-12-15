@@ -3,7 +3,7 @@ class Person:
     def __init__(self, name):
         self.name = name  # имя человека
         self.age = 21  # возраст человека
-        self.weight = 30 # вес человека
+        self.weight = 80 # вес человека
         self.height = 180 # высота человека
         self.width = 50 # ширина от спины до живота человека
         self.length = 60 # ширина от плеча до плеча человека
