@@ -32,10 +32,10 @@ class VMW(Car):
 def Info(Car):
     Car.car()
 
-model = input('Введите имя модель койоты: ')
+model = input('Введите модель койоты: ')
 year = int(input('Введите год выпуска койоты: '))
 price = int(input('Введите цену койоты: '))
-model1 = input('Введите имя модель вмв: ')
+model1 = input('Введите модель вмв: ')
 year1 = int(input('Введите год выпуска вмв: '))
 price1 = int(input('Введите цену вмв: '))
 coyota = Coyota(model, year, price)
