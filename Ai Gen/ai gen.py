@@ -5,10 +5,9 @@ import logging
 from io import BytesIO
 from PIL import Image
 import requests
-from telegram import Update
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -106,112 +105,147 @@ SECRET_KEY = 'A35BEA9989D8922F6ED9B7C68DF05A3E'
 
 api = FusionBrainAPI(API_URL, API_KEY, SECRET_KEY)
 
-# Состояния пользователей
 user_states = {}
 
 
-# Команда старт
+def get_main_keyboard():
+    keyboard = [
+        [KeyboardButton("🎨 Сгенерировать изображение")],
+        [KeyboardButton("❓ Помощь"), KeyboardButton("❌ Отмена")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="Выберите действие...")
+
+
+def get_styles_keyboard():
+    keyboard = [
+        [KeyboardButton("📸 Фото"), KeyboardButton("🎨 Аниме")],
+        [KeyboardButton("🖼️ Масляная"), KeyboardButton("🌊 Акварель")],
+        [KeyboardButton("🤖 Киберпанк"), KeyboardButton("🧙‍♂️ Фэнтези")],
+        [KeyboardButton("⚫ Минимализм"), KeyboardButton("🌅 Импрессионизм")],
+        [KeyboardButton("✏️ Эскиз"), KeyboardButton("🎭 Сюрреализм")],
+        [KeyboardButton("🚫 Без стиля"), KeyboardButton("❌ Отмена")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, input_field_placeholder="Выберите стиль...")
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id] = {'step': 'waiting_prompt'}
 
     welcome_text = """
-🎨 Добро пожаловать в AI Image Generator!
+   Добро пожаловать в AI Image Generator!
 
 Я могу создавать изображения по вашему описанию с помощью нейросети.
 
 Как использовать:
-1. Отправьте мне описание изображения
-2. Выберите стиль из предложенных
-3. Ждите результат (примерно 1 минуту)
+1. Нажмите кнопку "🎨 Сгенерировать изображение"
+2. Отправьте описание изображения
+3. Выберите стиль из предложенных
+4. Ждите результат (примерно 1 минуту)
 
 Примеры запросов:
 • Кот на фоне луны
 • Закат в лесу
 • Город будущего 
 
-Просто напишите, что хотите увидеть! 🖼️
+Начните с кнопки ниже! 🖼️
     """
 
-    await update.message.reply_text(welcome_text)
+    await update.message.reply_text(welcome_text, reply_markup=get_main_keyboard())
 
 
-# Команда помощи
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     help_text = """
-**Доступные команды:**
-/start - начать работу
-/help - показать эту справку
-/cancel - отменить текущую генерацию
+Доступные команды:
 
-**Процесс работы:**
-1. Отправьте описание изображения
-2. Выберите стиль (от 0 до 10)
-3. Ждите результат генерации
+🎨 Сгенерировать изображение - создать новое изображение
+❓ Помощь - показать подсказски 
+❌ Отмена - отменить текущую операцию
 
-Генерация занимает 1-3 минуты ⏳
+Процесс работы:
+1. Нажмите "🎨 Сгенерировать изображение"
+2. Отправьте описание изображения
+3. Выберите стиль из предложенных
+4. Ждите результат генерации
+
+⏳ Генерация занимает примерно 1 минуту
     """
-    await update.message.reply_text(help_text)
+    await update.message.reply_text(help_text, reply_markup=get_main_keyboard())
 
 
-# Команда отмены
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in user_states:
         user_states[user_id] = {'step': 'waiting_prompt'}
-    await update.message.reply_text("✅ Текущая операция отменена. Можете начать заново.")
+    await update.message.reply_text("✅ Текущая операция отменена. Можете начать заново.",
+                                    reply_markup=get_main_keyboard())
 
 
-# Обработка текстовых сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text.strip()
 
-    # Если пользователя нет в состояниях, добавляем его
     if user_id not in user_states:
         user_states[user_id] = {'step': 'waiting_prompt'}
 
     current_state = user_states[user_id]
 
-    if current_state['step'] == 'waiting_prompt':
-        # Сохраняем промпт и просим выбрать стиль
+    if text == "🎨 Сгенерировать изображение":
+        current_state['step'] = 'waiting_prompt'
+        await update.message.reply_text("💬 Отправьте описание изображения:\n\nПример: Кот на фоне луны")
+
+    elif text == "❓ Помощь":
+        await help_command(update, context)
+        return
+
+    elif text == "❌ Отмена":
+        await cancel(update, context)
+        return
+
+    elif current_state['step'] == 'waiting_prompt':
         current_state['prompt'] = text
         current_state['step'] = 'waiting_style'
 
-        styles_text = "🎨 **Выберите стиль для генерации:**\n\n"
-        for key, name in api.STYLES.items():
-            styles_text += f"{key}. {name}\n"
-
-        styles_text += "\nОтправьте номер стиля (0-10):"
-
-        await update.message.reply_text(styles_text)
+        styles_text = "🎨 **Выберите стиль для генерации:**"
+        await update.message.reply_text(styles_text, reply_markup=get_styles_keyboard())
 
     elif current_state['step'] == 'waiting_style':
-        # Обрабатываем выбор стиля
-        if text in api.STYLES:
-            current_state['style'] = text
+        style_mapping = {
+            "📸 Фото": "1",
+            "🎨 Аниме": "2",
+            "🖼️ Масляная": "3",
+            "🌊 Акварель": "4",
+            "🤖 Киберпанк": "5",
+            "🧙‍♂️ Фэнтези": "6",
+            "⚫ Минимализм": "7",
+            "🌅 Импрессионизм": "8",
+            "✏️ Эскиз": "9",
+            "🎭 Сюрреализм": "10",
+            "🚫 Без стиля": "0"
+        }
+
+        if text in style_mapping:
+            current_state['style'] = style_mapping[text]
             current_state['step'] = 'generating'
 
-            await update.message.reply_text("⏳ Запускаю генерацию... Это займет примерно 1 минуту.")
+            style_name = text
+            await update.message.reply_text(f"⏳ Запускаю генерацию...\n\nСтиль: {style_name}\n\nЭто займет примерно 1 минуту.",
+                                            reply_markup=None)
 
             try:
-                # Получаем pipeline ID
                 pipeline_id = api.get_pipeline()
 
-                # Запускаем генерацию
                 uuid = api.generate(
                     prompt=current_state['prompt'],
                     pipeline_id=pipeline_id,
                     style=current_state['style']
                 )
 
-                # Ждем завершения с периодическими обновлениями
                 message = await update.message.reply_text("🔄 Генерация началась...")
 
                 files = api.check_generation(uuid)
 
                 if files:
-                    # Конвертируем и отправляем изображение
                     image = api.get_image_from_data(files[0])
 
                     bio = BytesIO()
@@ -220,43 +254,43 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     bio.seek(0)
 
                     await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=message.message_id)
-                    await update.message.reply_photo(photo=bio, caption="✅ Ваше изображение готово!")
 
-                    # Сбрасываем состояние
+                    caption = f"✅ Ваше изображение готово!\n\n📝 Запрос: {current_state['prompt']}\n🎨 Стиль: {style_name}"
+                    await update.message.reply_photo(photo=bio, caption=caption, reply_markup=get_main_keyboard())
+
                     user_states[user_id] = {'step': 'waiting_prompt'}
-                    await update.message.reply_text("Можете отправить новый запрос! ✨")
 
                 else:
-                    await update.message.reply_text("❌ Не удалось сгенерировать изображение. Попробуйте еще раз.")
+                    await update.message.reply_text("❌ Не удалось сгенерировать изображение. Попробуйте еще раз.",
+                                                    reply_markup=get_main_keyboard())
                     user_states[user_id] = {'step': 'waiting_prompt'}
 
             except Exception as e:
-                await update.message.reply_text(f"❌ Ошибка при генерации: {str(e)}")
+                await update.message.reply_text(f"❌ Ошибка при генерации: {str(e)}", reply_markup=get_main_keyboard())
                 user_states[user_id] = {'step': 'waiting_prompt'}
 
+        elif text == "❌ Отмена":
+            await cancel(update, context)
         else:
-            await update.message.reply_text("❌ Неверный номер стиля. Отправьте число от 0 до 10:")
+            await update.message.reply_text("❌ Пожалуйста, выберите стиль из предложенных кнопок:")
 
 
-# Обработка ошибок
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logging.error(f"Ошибка: {context.error}")
     if update and update.effective_message:
-        await update.effective_message.reply_text("❌ Произошла ошибка. Попробуйте еще раз.")
+        await update.effective_message.reply_text("❌ Произошла ошибка. Попробуйте еще раз.",
+                                                  reply_markup=get_main_keyboard())
 
 
 def main():
-    BOT_TOKEN = "8150733026:AAHuJr3-AW1BH-wQ8p3xiEjIykfBRWJI5fM"
+    BOT_TOKEN = "8207839620:AAH8sgsnS5XhGnnzVRbjGPhnc_ihAIaXeFk"
 
     application = Application.builder().token(BOT_TOKEN).build()
-
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("cancel", cancel))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
     application.add_error_handler(error_handler)
-
     application.run_polling()
 
 
