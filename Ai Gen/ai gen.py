@@ -100,8 +100,8 @@ class FusionBrainAPI:
 
 
 API_URL = 'https://api-key.fusionbrain.ai/'
-API_KEY = '497FC239DD6DE62B5CA88473EB340B4A'
-SECRET_KEY = 'A35BEA9989D8922F6ED9B7C68DF05A3E'
+API_KEY = ''
+SECRET_KEY = ''
 
 api = FusionBrainAPI(API_URL, API_KEY, SECRET_KEY)
 
@@ -283,7 +283,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
-    BOT_TOKEN = "8207839620:AAH8sgsnS5XhGnnzVRbjGPhnc_ihAIaXeFk"
+    BOT_TOKEN = ""
 
     application = Application.builder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
